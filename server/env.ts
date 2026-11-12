@@ -6,6 +6,11 @@ try {
 
 const s = (k: string) => (process.env[k] ?? '').trim()
 
+/** supabase-js wants the bare Project URL; people often paste it with /rest/v1/ or a postgres:// string. */
+const httpOrigin = (u: string) => {
+  try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:' ? x.origin : '' } catch { return '' }
+}
+
 export const env = {
   port: Number(s('PORT') || 8787),
   publicUrl: (s('PUBLIC_URL') || (s('VERCEL_PROJECT_PRODUCTION_URL') ? `https://${s('VERCEL_PROJECT_PRODUCTION_URL')}` : 'http://localhost:5173')).replace(/\/$/, ''),
@@ -14,7 +19,7 @@ export const env = {
   firmsKey: s('FIRMS_MAP_KEY'),
   /** Shared secret for the scheduled sweep endpoint (Vercel Cron and Supabase pg_cron send it as a Bearer token). */
   cronSecret: s('CRON_SECRET'),
-  supabase: { url: s('SUPABASE_URL'), key: s('SUPABASE_SERVICE_ROLE_KEY') },
+  supabase: { url: httpOrigin(s('SUPABASE_URL')), raw: s('SUPABASE_URL'), key: s('SUPABASE_SERVICE_ROLE_KEY') },
   smtp: {
     host: s('SMTP_HOST'),
     port: Number(s('SMTP_PORT') || 587),

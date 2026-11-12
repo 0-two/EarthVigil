@@ -7,6 +7,7 @@ import express, { type Request, type Response } from 'express'
 import compression from 'compression'
 import { getEvents } from './data/eonet.js'
 import { getFires } from './data/firms.js'
+import { getConditions } from './data/conditions.js'
 import { hashIp, id, store, type Watch } from './store.js'
 import { deliver } from './alerts/channels.js'
 import { match, snapshot, sweep, welcome } from './alerts/engine.js'
@@ -45,6 +46,17 @@ app.get('/api/fires', async (_req, res) => {
     cache(res, 300, 1800).json(await getFires())
   } catch (err) {
     noStore(res).status(502).json({ error: 'FIRMS is unreachable right now', detail: (err as Error).message })
+  }
+})
+
+/* weather, air and earthquakes around a point; coordinates are rounded so nearby clicks share a CDN entry */
+app.get('/api/conditions', async (req, res) => {
+  const lat = Number(req.query.lat), lon = Number(req.query.lon), r = Number(req.query.r)
+  if (!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && r >= 5 && r <= 1000)) return void res.status(400).json({ error: 'lat, lon and r are required' })
+  try {
+    cache(res, 300, 900).json(await getConditions(Math.round(lat * 100) / 100, Math.round(lon * 100) / 100, Math.round(r)))
+  } catch (err) {
+    noStore(res).status(502).json({ error: 'Conditions are unavailable right now', detail: (err as Error).message })
   }
 })
 

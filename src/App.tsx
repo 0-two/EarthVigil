@@ -53,7 +53,7 @@ export default function App() {
   const [intro, setIntro] = useState(true)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [showFires, setShowFires] = useState(true)
-  const [overlays, setOverlays] = useState<Record<string, boolean>>({ truecolor: true, labels: true, names: true })
+  const [overlays, setOverlays] = useState<Record<string, boolean>>({ labels: true, names: true })
   const [nightShade, setNightShade] = useState(true)
   const [date, setDate] = useState(defaultImageryDate)
   const [spinning, setSpinning] = useState(true)
@@ -203,6 +203,7 @@ export default function App() {
         onPick={(lat, lon) => { if (selection) setSelection(null); else void pickPoint(lat, lon) }}
         onInteract={stopSpin}
         onReady={() => setMapReady(true)}
+        deferMs={1300}
       >
         {(map) => (
           <AnimatePresence>
@@ -292,7 +293,7 @@ export default function App() {
             onToggle={(id) => setOverlays((o) => ({ ...o, [id]: !o[id] }))}
             nightShade={nightShade} onNightShade={() => setNightShade((v) => !v)} />
         </div>
-        <Timeline date={date} onDate={setDate} />
+        <Timeline date={date} onDate={(d) => { setDate(d); setOverlays((o) => (OVERLAYS.some((l) => l.gibs?.dated && o[l.id]) ? o : { ...o, truecolor: true })) }} />
         <div className="rail-right">
           <div className="zoom">
             <button className="icon-btn" onClick={() => globe.current?.zoomBy(1)} aria-label="Zoom in"><Icon name="plus" /></button>
@@ -302,7 +303,9 @@ export default function App() {
           <p className="credit">
             {fires ? <>{fires.source} · fires updated {new Date(fires.fetchedAt).toISOString().slice(11, 16)} UTC</> : firesErr ? 'Fire feed unavailable' : 'Reading fire feed…'}
             <br />
-            NASA <a href="https://eonet.gsfc.nasa.gov/" target="_blank" rel="noreferrer">EONET</a> · <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noreferrer">FIRMS</a> · <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noreferrer">GIBS</a> · labels © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a>
+            NASA <a href="https://eonet.gsfc.nasa.gov/" target="_blank" rel="noreferrer">EONET</a> · <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noreferrer">FIRMS</a> · <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noreferrer">GIBS</a>
+            <br />
+            Imagery <a href="https://s2maps.eu" target="_blank" rel="noreferrer">Sentinel-2 cloudless by EOX</a> (Copernicus data 2024) · Esri, Maxar, Earthstar Geographics · labels © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a> · <a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a>
           </p>
         </div>
       </motion.footer>
@@ -314,7 +317,7 @@ export default function App() {
             steps={[
               { label: 'EONET natural events', value: events.length ? `${events.length} open` : null, failed: !!eventsErr },
               { label: 'FIRMS fire hotspots', value: fires ? fires.hotspots.length.toLocaleString('en') : null, failed: !!firesErr },
-              { label: 'GIBS imagery', value: mapReady ? `${OVERLAYS.filter((l) => overlays[l.id]).length + 1} layers` : null },
+              { label: 'Satellite imagery', value: mapReady ? 'cloud-free · 3D' : null },
             ]}
           />
         )}

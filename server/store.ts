@@ -172,6 +172,7 @@ function fileStore(): Store {
 
 function pick(): Store {
   if (env.supabase.url && env.supabase.key) return supabaseStore()
+  if (env.supabase.raw && !env.supabase.url) console.error('[store] SUPABASE_URL must be the Project URL, like https://abcd.supabase.co (Supabase → Project Settings → API), not a postgres:// connection string')
   if (env.serverless) console.error('[store] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are missing: watches cannot be saved on a serverless host')
   return fileStore()
 }

@@ -50,3 +50,15 @@ export interface PublicWatch {
 export interface SendResult { channel: ChannelId; ok: boolean; dryRun?: boolean; detail?: string }
 
 export interface SavedWatch { id: string; token: string; name: string; lat: number; lon: number; radiusKm: number }
+
+export interface Quake { id: string; mag: number; place: string; time: number; depthKm: number; km: number; url: string; tsunami: boolean }
+export interface Hazard { kind: 'heat' | 'cold' | 'rain' | 'wind' | 'air' | 'uv' | 'quake' | 'storm'; level: 1 | 2; text: string }
+export interface Conditions {
+  weather: {
+    temp: number; feels: number; humidity: number; wind: number; gusts: number; precip: number; code: number; isDay: boolean
+    days: { date: string; max: number; min: number; rain: number; rainChance: number; gusts: number; uv: number; code: number }[]
+  } | null
+  air: { aqi: number; pm25: number; pm10: number; dust: number } | null
+  quakes: Quake[] | null
+  hazards: Hazard[]
+}

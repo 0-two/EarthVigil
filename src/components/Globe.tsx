@@ -4,7 +4,7 @@ import * as maplibregl from 'maplibre-gl'
 import { type GeoJSONSource, type Map as MLMap, type RasterTileSource, type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { EonetEvent, FireSet, Hotspot, Place } from '../lib/types'
-import { BASE, OVERLAYS, tileUrl } from '../lib/gibs'
+import { OVERLAYS, SOURCES, tileUrl, type Overlay } from '../lib/gibs'
 import { CATEGORIES } from '../lib/categories'
 import { circle, distanceKm, nightPolygon, zoomForRadius } from '../lib/geo'
 
@@ -34,49 +34,121 @@ interface Props {
   onPick(lat: number, lon: number): void
   onInteract(): void
   onReady(): void
+  deferMs?: number
   children?: (map: MLMap) => ReactNode
 }
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
 const catColor = ['match', ['get', 'cat'], ...CATEGORIES.flatMap((c) => [c.id, c.color]), '#a7a39a'] as unknown as maplibregl.ExpressionSpecification
 
+const name = ['coalesce', ['get', 'name:en'], ['get', 'name:latin'], ['get', 'name']] as unknown as maplibregl.ExpressionSpecification
+const halo = { 'text-halo-color': 'rgba(5,6,8,0.82)', 'text-halo-width': 1.3, 'text-halo-blur': 0.4 }
+const notSea = ['!=', ['get', 'maritime'], 1]
+
 function style(date: string): StyleSpecification {
   const sources: StyleSpecification['sources'] = {
-    [BASE.id]: { type: 'raster', tiles: [tileUrl(BASE, date)], tileSize: 256, maxzoom: BASE.maxzoom },
+    s2: {
+      type: 'raster', tiles: [SOURCES.s2], tileSize: 256, maxzoom: 14,
+      attribution: 'Sentinel-2 cloudless 2024 by EOX (contains modified Copernicus Sentinel data)',
+    },
+    /* no source minzoom: in a tilted view the far tiles load at lower zooms and must still be covered, or a seam shows */
+    esri: { type: 'raster', tiles: [SOURCES.esri], tileSize: 256, maxzoom: 19, attribution: 'Esri, Maxar, Earthstar Geographics' },
+    'dem-terrain': { type: 'raster-dem', tiles: [SOURCES.dem], tileSize: 256, maxzoom: 14, encoding: 'terrarium' },
+    'dem-shade': { type: 'raster-dem', tiles: [SOURCES.dem], tileSize: 256, maxzoom: 12, encoding: 'terrarium' },
+    ofm: { type: 'vector', url: SOURCES.vector, attribution: '© OpenStreetMap contributors · OpenFreeMap' },
   }
-  for (const l of OVERLAYS) sources[l.id] = { type: 'raster', tiles: [tileUrl(l, date)], tileSize: 256, maxzoom: l.maxzoom }
-  const raster = (id: string, opacity: number): maplibregl.LayerSpecification => ({
-    id, type: 'raster', source: id, layout: { visibility: 'none' },
-    paint: { 'raster-opacity': opacity, 'raster-fade-duration': 400, 'raster-resampling': 'linear' },
+  for (const l of OVERLAYS) if (l.gibs) sources[l.id] = { type: 'raster', tiles: [tileUrl(l, date)], tileSize: 256, maxzoom: l.gibs.maxzoom }
+  const raster = (l: Overlay): maplibregl.LayerSpecification => ({
+    id: l.id, type: 'raster', source: l.id, layout: { visibility: 'none' }, metadata: { group: l.id },
+    paint: { 'raster-opacity': l.opacity, 'raster-fade-duration': 300, 'raster-resampling': 'linear' },
   })
-  const o = Object.fromEntries(OVERLAYS.map((l) => [l.id, l]))
+  const g = (group: string) => ({ metadata: { group } })
+  const hidden = { visibility: 'none' as const }
+
   return {
     version: 8,
     projection: { type: 'globe' },
+    glyphs: SOURCES.glyphs,
+    terrain: { source: 'dem-terrain', exaggeration: 1.35 },
     sky: {
-      'sky-color': '#05070a',
-      'horizon-color': '#24496b',
-      'fog-color': '#05070a',
-      'sky-horizon-blend': 0.6,
-      'horizon-fog-blend': 0.7,
-      'fog-ground-blend': 0.9,
-      'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 4, 0.9, 7, 0],
+      'sky-color': '#0b1a2e',
+      'horizon-color': '#4a7aa6',
+      'fog-color': '#0a1424',
+      'sky-horizon-blend': 0.55,
+      'horizon-fog-blend': 0.6,
+      'fog-ground-blend': 0.85,
+      'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 0.9, 8, 0.25, 11, 0],
     },
     sources,
     layers: [
       { id: 'space', type: 'background', paint: { 'background-color': '#0a1220' } },
-      { id: BASE.id, type: 'raster', source: BASE.id, paint: { 'raster-fade-duration': 0, 'raster-saturation': -0.15, 'raster-brightness-max': 0.92 } },
-      raster('truecolor', o.truecolor.opacity),
-      raster('clouds', o.clouds.opacity),
-      raster('cloudtop', o.cloudtop.opacity),
-      raster('rain', o.rain.opacity),
-      raster('aerosol', o.aerosol.opacity),
-      raster('night', o.night.opacity),
-      raster('labels', o.labels.opacity),
-      raster('names', o.names.opacity),
-    ],
+      { id: 's2', type: 'raster', source: 's2', paint: { 'raster-fade-duration': 250, 'raster-resampling': 'linear', 'raster-contrast': 0.06, 'raster-saturation': 0.04 } },
+      {
+        id: 'esri', type: 'raster', source: 'esri', minzoom: 8,
+        paint: { 'raster-fade-duration': 250, 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 8.5, 0, 11, 1] },
+      },
+      {
+        id: 'relief', type: 'hillshade', source: 'dem-shade', maxzoom: 12,
+        paint: {
+          'hillshade-exaggeration': ['interpolate', ['linear'], ['zoom'], 2, 0.35, 9, 0.2, 12, 0],
+          'hillshade-shadow-color': 'rgba(4,8,14,0.55)', 'hillshade-highlight-color': 'rgba(255,248,235,0.10)', 'hillshade-accent-color': 'rgba(0,0,0,0)',
+        },
+      },
+      ...OVERLAYS.filter((l) => l.gibs).map(raster),
+
+      /* borders & roads */
+      { id: 'roads-major', type: 'line', source: 'ofm', 'source-layer': 'transportation', minzoom: 7, ...g('labels'), layout: hidden,
+        filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false],
+        paint: { 'line-color': '#f2d49b', 'line-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.25, 12, 0.55], 'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0.4, 12, 1.6, 16, 5] } },
+      { id: 'roads-minor', type: 'line', source: 'ofm', 'source-layer': 'transportation', minzoom: 11, ...g('labels'), layout: hidden,
+        filter: ['match', ['get', 'class'], ['secondary', 'tertiary', 'minor'], true, false],
+        paint: { 'line-color': '#ffffff', 'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.12, 15, 0.4], 'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 11, 0.3, 16, 2.5] } },
+      { id: 'bd-state', type: 'line', source: 'ofm', 'source-layer': 'boundary', minzoom: 3.5, ...g('labels'), layout: hidden,
+        filter: ['all', ['==', ['get', 'admin_level'], 4], notSea],
+        paint: { 'line-color': '#efe8d8', 'line-opacity': 0.3, 'line-width': 0.7, 'line-dasharray': [3, 2] } },
+      { id: 'bd-country', type: 'line', source: 'ofm', 'source-layer': 'boundary', ...g('labels'), layout: hidden,
+        filter: ['all', ['==', ['get', 'admin_level'], 2], notSea],
+        paint: { 'line-color': '#efe8d8', 'line-opacity': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 6, 0.7], 'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.6, 6, 1.3, 12, 2.2] } },
+
+      /* names */
+      { id: 'nm-water', type: 'symbol', source: 'ofm', 'source-layer': 'water_name', ...g('names'),
+        filter: ['match', ['get', 'class'], ['ocean', 'sea', 'bay', 'strait', 'lake'], true, false],
+        layout: { ...hidden, 'text-field': name, 'text-font': ['Noto Sans Italic'], 'text-size': ['interpolate', ['linear'], ['zoom'], 1, 10, 8, 14], 'text-letter-spacing': 0.12, 'text-max-width': 8 },
+        paint: { 'text-color': '#93b6cc', ...halo } },
+      { id: 'nm-minor', type: 'symbol', source: 'ofm', 'source-layer': 'place', minzoom: 11, ...g('names'),
+        filter: ['match', ['get', 'class'], ['village', 'suburb', 'neighbourhood', 'quarter', 'hamlet'], true, false],
+        layout: { ...hidden, 'text-field': name, 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 11, 11, 16, 14], 'text-max-width': 8 },
+        paint: { 'text-color': 'rgba(239,232,216,0.85)', ...halo } },
+      { id: 'nm-town', type: 'symbol', source: 'ofm', 'source-layer': 'place', minzoom: 8, ...g('names'),
+        filter: ['==', ['get', 'class'], 'town'],
+        layout: { ...hidden, 'text-field': name, 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 8, 11, 14, 15], 'text-max-width': 8 },
+        paint: { 'text-color': '#efe8d8', ...halo } },
+      { id: 'nm-state', type: 'symbol', source: 'ofm', 'source-layer': 'place', minzoom: 4, maxzoom: 9, ...g('names'),
+        filter: ['==', ['get', 'class'], 'state'],
+        layout: { ...hidden, 'text-field': name, 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-transform': 'uppercase', 'text-letter-spacing': 0.16, 'text-max-width': 7 },
+        paint: { 'text-color': 'rgba(239,232,216,0.6)', ...halo } },
+      { id: 'nm-city', type: 'symbol', source: 'ofm', 'source-layer': 'place', minzoom: 2.5, ...g('names'),
+        filter: ['==', ['get', 'class'], 'city'],
+        layout: { ...hidden, 'text-field': name, 'text-font': ['Noto Sans Regular'], 'symbol-sort-key': ['get', 'rank'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10.5, 8, 14, 12, 18], 'text-max-width': 8 },
+        paint: { 'text-color': '#fbf6ea', ...halo } },
+      { id: 'nm-country', type: 'symbol', source: 'ofm', 'source-layer': 'place', maxzoom: 7, ...g('names'),
+        filter: ['==', ['get', 'class'], 'country'],
+        layout: { ...hidden, 'text-field': name, 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 1, 9.5, 5, 13], 'text-transform': 'uppercase', 'text-letter-spacing': 0.2, 'text-max-width': 7 },
+        paint: { 'text-color': '#efe8d8', ...halo } },
+    ] as maplibregl.LayerSpecification[],
   }
 }
+
+/** Every style layer that belongs to a layer-dock entry. */
+const groupLayers = (m: MLMap, id: string) =>
+  m.getStyle().layers.filter((l) => (l.metadata as { group?: string } | undefined)?.group === id).map((l) => l.id)
+
+/** Google Earth's camera: accelerate away, glide, settle gently. */
+const glide = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2)
+
+/** Closer views tilt more, so terrain reads as terrain. */
+const pitchFor = (km: number) => (km <= 25 ? 60 : km <= 50 ? 54 : km <= 100 ? 46 : km <= 250 ? 32 : 14)
 
 export function Globe(p: Props) {
   const el = useRef<HTMLDivElement>(null)
@@ -85,22 +157,25 @@ export function Globe(p: Props) {
   props.current = p
   const spinRef = useRef(false)
 
-  /* ── create once ── */
+  /* ── create once, after deferMs so building the WebGL globe doesn't stall the intro ── */
   useEffect(() => {
+    let created: MLMap | undefined
+    const t = setTimeout(() => {
     const m = new maplibregl.Map({
       container: el.current!,
       style: style(p.date),
       center: [-30, 18],
       zoom: 0.2,
       minZoom: 0.8,
-      maxZoom: 12,
+      maxZoom: 18.5,
+      maxPitch: 72,
       attributionControl: false,
       renderWorldCopies: false,
       fadeDuration: 200,
+      maxTileCacheSize: 600,
       canvasContextAttributes: { antialias: true },
     })
-    m.dragRotate.disable()
-    m.touchZoomRotate.disableRotation()
+    created = m
 
     m.on('load', () => {
       m.addSource('night-shade', { type: 'geojson', data: EMPTY })
@@ -196,7 +271,8 @@ export function Globe(p: Props) {
       props.current.onReady()
     })
 
-    return () => { m.remove(); setMap(null) }
+    }, p.deferMs ?? 0)
+    return () => { clearTimeout(t); created?.remove(); setMap(null) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -204,14 +280,17 @@ export function Globe(p: Props) {
   useImperativeHandle(p.ref, () => ({
     flyTo(lat, lon, zoom) {
       spinRef.current = false
-      map?.flyTo({ center: [lon, lat], zoom: zoom ?? Math.max(map.getZoom(), 5), speed: 1.1, curve: 1.6, essential: true })
+      map?.flyTo({ center: [lon, lat], zoom: zoom ?? Math.max(map.getZoom(), 5), pitch: 28, bearing: 0, speed: 0.9, curve: 1.5, maxDuration: 5000, easing: glide, essential: true })
     },
     frame(place, radiusKm) {
       spinRef.current = false
-      map?.flyTo({ center: [place.lon, place.lat], zoom: zoomForRadius(radiusKm), speed: 1.05, curve: 1.7, padding: framePadding(), essential: true })
+      map?.flyTo({
+        center: [place.lon, place.lat], zoom: zoomForRadius(radiusKm), pitch: pitchFor(radiusKm), bearing: 0,
+        speed: 0.85, curve: 1.5, maxDuration: 5500, easing: glide, padding: framePadding(), essential: true,
+      })
     },
     zoomBy(d) { map?.easeTo({ zoom: map.getZoom() + d, duration: 300 }) },
-    home() { map?.flyTo({ center: [map.getCenter().lng, 12], zoom: homeZoom(), speed: 1.2 }) },
+    home() { map?.flyTo({ center: [map.getCenter().lng, 12], zoom: homeZoom(), pitch: 0, bearing: 0, speed: 1.1, easing: glide }) },
   }), [map])
 
   /* ── events ── */
@@ -257,12 +336,12 @@ export function Globe(p: Props) {
   /* ── imagery ── */
   useEffect(() => {
     if (!map) return
-    for (const l of OVERLAYS) map.setLayoutProperty(l.id, 'visibility', p.overlays[l.id] ? 'visible' : 'none')
+    for (const l of OVERLAYS) for (const id of groupLayers(map, l.id)) map.setLayoutProperty(id, 'visibility', p.overlays[l.id] ? 'visible' : 'none')
   }, [map, p.overlays])
 
   useEffect(() => {
     if (!map) return
-    for (const l of OVERLAYS) if (l.dated) (map.getSource(l.id) as RasterTileSource).setTiles([tileUrl(l, p.date)])
+    for (const l of OVERLAYS) if (l.gibs?.dated) (map.getSource(l.id) as RasterTileSource).setTiles([tileUrl(l, p.date)])
   }, [map, p.date])
 
   /* ── night side, refreshed every minute ── */

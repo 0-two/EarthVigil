@@ -1,4 +1,4 @@
-import type { EonetEvent, FireSet, Place, PublicWatch, SavedWatch, SendResult, ServerConfig } from './types'
+import type { Conditions, EonetEvent, FireSet, Place, PublicWatch, SavedWatch, SendResult, ServerConfig } from './types'
 
 async function json<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}))
@@ -10,6 +10,8 @@ export const api = {
   events: () => fetch('/api/events').then((r) => json<EonetEvent[]>(r)),
   fires: () => fetch('/api/fires').then((r) => json<FireSet>(r)),
   config: () => fetch('/api/config').then((r) => json<ServerConfig>(r)),
+  conditions: (lat: number, lon: number, r: number, signal?: AbortSignal) =>
+    fetch(`/api/conditions?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}&r=${r}`, { signal }).then((res) => json<Conditions>(res)),
   createWatch: (body: unknown) =>
     fetch('/api/watches', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       .then((r) => json<{ watch: PublicWatch; token: string; results: SendResult[]; now?: { events: number; fires: number }; warning?: string }>(r)),
