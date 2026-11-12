@@ -20,6 +20,12 @@ export interface Watch {
   categories: string[] // EONET category ids
   fires: boolean
   minFireConfidence: 0 | 1 | 2
+  /** USGS earthquakes at or above minQuakeMag */
+  quakes?: boolean
+  minQuakeMag?: number
+  /** weather and air-quality warnings from the Open-Meteo forecast */
+  hazards?: boolean
+  lastHazardCheckAt?: string
   channels: {
     email?: string
     sms?: string
@@ -28,7 +34,7 @@ export interface Watch {
     discord?: string
     slack?: string
   }
-  /** keys already notified: EONET event ids, or fires:<yyyy-mm-dd> */
+  /** keys already notified: EONET event ids, fires:<day>, q:<usgs id>, hz:<kind><level>:<day> */
   seen: string[]
   lastCheckedAt?: string
   lastAlertAt?: string

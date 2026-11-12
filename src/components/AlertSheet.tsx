@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { api } from '../lib/api'
 import type { ChannelId, Place, PublicWatch, SavedWatch, SendResult, ServerConfig } from '../lib/types'
-import { CATEGORIES, FIRE_GLYPH } from '../lib/categories'
+import { CATEGORIES, FIRE_GLYPH, catOf } from '../lib/categories'
 import { Glyph, Icon } from './bits'
 import { RADII } from './PlacePanel'
 
@@ -20,7 +20,12 @@ export const CHANNELS: { id: ChannelId; label: string; glyph: string; field?: { 
     field: { type: 'url', placeholder: 'https://hooks.slack.com/services/…', hint: 'Create an Incoming Webhook for a channel and paste it here.' } },
 ]
 
-const DEFAULT_CATS = ['wildfires', 'severeStorms', 'volcanoes', 'floods', 'earthquakes', 'landslides', 'tempExtremes', 'dustHaze']
+const DEFAULT_CATS = ['wildfires', 'severeStorms', 'volcanoes', 'floods', 'landslides', 'tempExtremes', 'dustHaze']
+/* USGS covers earthquakes far better than EONET's occasional entries, so that category is offered through it instead */
+const EONET_PICKS = CATEGORIES.filter((c) => !['manmade', 'waterColor', 'earthquakes'].includes(c.id))
+const QUAKE = catOf('earthquakes')
+const WEATHER_GLYPH = 'M4.5 10.5h7a2.8 2.8 0 0 0 .3-5.6 4 4 0 0 0-7.6.9 2.4 2.4 0 0 0 .3 4.7zM8.5 12l-1.2 2.5M5.5 12l-1.2 2.5M11.5 12l-1.2 2.5'
+const MAGS = [2.5, 4, 5, 6]
 
 interface Props {
   place: Place
@@ -31,12 +36,15 @@ interface Props {
   onSaved(w: SavedWatch): void
 }
 
-type Done = { watch: PublicWatch; token: string; results: SendResult[]; now?: { events: number; fires: number } }
+type Done = { watch: PublicWatch; token: string; results: SendResult[]; now?: { events: number; fires: number; quakes?: number; hazards?: string[] } }
 
 export function AlertSheet(p: Props) {
   const [cats, setCats] = useState<Set<string>>(new Set(DEFAULT_CATS))
   const [fires, setFires] = useState(true)
   const [conf, setConf] = useState(1)
+  const [quakes, setQuakes] = useState(true)
+  const [minMag, setMinMag] = useState(4)
+  const [hazards, setHazards] = useState(true)
   const [chosen, setChosen] = useState<Set<ChannelId>>(new Set(['email']))
   const [values, setValues] = useState<Partial<Record<ChannelId, string>>>({})
   const [busy, setBusy] = useState(false)
@@ -58,6 +66,9 @@ export function AlertSheet(p: Props) {
         categories: [...cats],
         fires,
         minFireConfidence: conf,
+        quakes,
+        minQuakeMag: minMag,
+        hazards,
         channels,
       })
       setDone(res)
@@ -82,14 +93,14 @@ export function AlertSheet(p: Props) {
 
   if (done) return <Confirmation done={done} place={p.place} test={test} onTest={sendTest} onBack={p.onBack} />
 
-  const ready = chosen.size > 0 && (cats.size > 0 || fires) && [...chosen].every((c) => c === 'telegram' || (values[c] ?? '').trim())
+  const ready = chosen.size > 0 && (cats.size > 0 || fires || quakes || hazards) && [...chosen].every((c) => c === 'telegram' || (values[c] ?? '').trim())
 
   return (
     <div className="sheet">
       <header className="sheet-head">
         <button className="back" onClick={p.onBack}><Icon name="back" /> {p.place.name}</button>
         <h2>Keep watch</h2>
-        <p className="place-ctx">Vigil checks NASA's feeds every {p.config?.intervalMin ?? 15} minutes and tells you the moment something new appears near this place.</p>
+        <p className="place-ctx">Vigil checks NASA, USGS and weather feeds every {p.config?.intervalMin ?? 15} minutes and tells you the moment something new appears near this place.</p>
       </header>
 
       <div className="sheet-body">
@@ -107,26 +118,53 @@ export function AlertSheet(p: Props) {
 
         <section className="block">
           <h4 className="eyebrow"><span className="step">2</span> What to watch for</h4>
+          <p className="pick-l">Live hazards</p>
           <div className="pick-grid">
             <button className={`pick ${fires ? 'is-on' : ''}`} onClick={() => setFires(!fires)} aria-pressed={fires}>
               <Glyph d={FIRE_GLYPH} color="#ff8a3d" /> Fire hotspots
             </button>
-            {CATEGORIES.filter((c) => c.id !== 'manmade' && c.id !== 'waterColor').map((c) => (
-              <button key={c.id} className={`pick ${cats.has(c.id) ? 'is-on' : ''}`} onClick={() => setCats(toggle(cats, c.id))} aria-pressed={cats.has(c.id)}>
-                <Glyph d={c.glyph} color={c.color} /> {c.label}
-              </button>
-            ))}
+            <button className={`pick ${quakes ? 'is-on' : ''}`} onClick={() => setQuakes(!quakes)} aria-pressed={quakes}>
+              <Glyph d={QUAKE.glyph} color="#d9b8ff" /> Earthquakes
+            </button>
+            <button className={`pick span2 ${hazards ? 'is-on' : ''}`} onClick={() => setHazards(!hazards)} aria-pressed={hazards}>
+              <Glyph d={WEATHER_GLYPH} color="#8fc3e8" /> Weather &amp; air warnings
+            </button>
           </div>
           <AnimatePresence initial={false}>
             {fires && (
-              <motion.div className="conf" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+              <motion.div key="conf" className="conf" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}>
                 <span className="mono">Fire confidence</span>
                 {['Any', 'Nominal +', 'High only'].map((l, i) => (
                   <button key={l} className={`tiny ${conf === i ? 'is-on' : ''}`} onClick={() => setConf(i)}>{l}</button>
                 ))}
               </motion.div>
             )}
+            {quakes && (
+              <motion.div key="mag" className="conf" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}>
+                <span className="mono">Magnitude</span>
+                {MAGS.map((m) => (
+                  <button key={m} className={`tiny ${minMag === m ? 'is-on' : ''}`} onClick={() => setMinMag(m)}>M{m}+</button>
+                ))}
+              </motion.div>
+            )}
+            {hazards && (
+              <motion.p key="hz" className="fine pick-note" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}>
+                Extreme heat or cold, heavy rain, damaging wind, thunderstorms and unhealthy air, from the 3-day forecast. Checked every 6 hours, at most one message per warning a day.
+              </motion.p>
+            )}
           </AnimatePresence>
+
+          <p className="pick-l">NASA natural events</p>
+          <div className="pick-grid">
+            {EONET_PICKS.map((c) => (
+              <button key={c.id} className={`pick ${cats.has(c.id) ? 'is-on' : ''}`} onClick={() => setCats(toggle(cats, c.id))} aria-pressed={cats.has(c.id)}>
+                <Glyph d={c.glyph} color={c.color} /> {c.label}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="block">
@@ -202,9 +240,7 @@ function Confirmation({ done, place, test, onTest, onBack }: { done: Done; place
           Vigil is watching <em>{place.name}</em>.
         </motion.h2>
         <motion.p className="place-ctx" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}>
-          {done.now && (done.now.events || done.now.fires)
-            ? `Right now there ${done.now.events === 1 ? 'is 1 event' : `are ${done.now.events} events`} and ${done.now.fires} fire hotspots inside ${done.watch.radiusKm} km. You'll only hear about new ones.`
-            : `It's quiet inside ${done.watch.radiusKm} km right now. You'll hear the moment that changes.`}
+          {nowLine(done)}
         </motion.p>
 
         {done.watch.telegramLink && (
@@ -238,4 +274,18 @@ function Confirmation({ done, place, test, onTest, onBack }: { done: Done; place
       </footer>
     </div>
   )
+}
+
+function nowLine(done: Done) {
+  const n = done.now
+  const r = done.watch.radiusKm
+  if (!n) return `You'll hear the moment something new appears inside ${r} km.`
+  const parts: string[] = []
+  if (n.events) parts.push(`${n.events} event${n.events > 1 ? 's' : ''}`)
+  if (n.fires) parts.push(`${n.fires} fire hotspot${n.fires > 1 ? 's' : ''}`)
+  if (n.quakes) parts.push(`${n.quakes} earthquake${n.quakes > 1 ? 's' : ''}`)
+  if (n.hazards?.length) parts.push(`${n.hazards.length} weather or air warning${n.hazards.length > 1 ? 's' : ''}`)
+  if (!parts.length) return `It's quiet inside ${r} km right now. You'll hear the moment that changes.`
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]
+  return `Right now there's ${list} inside ${r} km. You'll only hear about new ones.`
 }

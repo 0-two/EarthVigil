@@ -40,6 +40,9 @@ export interface PublicWatch {
   radiusKm: number
   categories: string[]
   fires: boolean
+  quakes: boolean
+  minQuakeMag: number
+  hazards: boolean
   createdAt: string
   lastCheckedAt?: string
   lastAlertAt?: string

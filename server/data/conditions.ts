@@ -4,6 +4,8 @@
  * All three are free, keyless and allow CORS-free server use.
  */
 
+export interface Hazard { kind: 'heat' | 'cold' | 'rain' | 'wind' | 'air' | 'uv' | 'quake' | 'storm'; level: 1 | 2; text: string }
+
 export interface Conditions {
   weather: {
     temp: number; feels: number; humidity: number; wind: number; gusts: number; precip: number; code: number; isDay: boolean
@@ -12,7 +14,7 @@ export interface Conditions {
   air: { aqi: number; pm25: number; pm10: number; dust: number } | null
   quakes: { id: string; mag: number; place: string; time: number; depthKm: number; km: number; url: string; tsunami: boolean }[] | null
   /** plain-language warnings derived from the numbers above */
-  hazards: { kind: 'heat' | 'cold' | 'rain' | 'wind' | 'air' | 'uv' | 'quake' | 'storm'; level: 1 | 2; text: string }[]
+  hazards: Hazard[]
 }
 
 const get = async <T>(url: string): Promise<T> => {
@@ -111,4 +113,10 @@ export async function getConditions(lat: number, lon: number, radiusKm: number):
     quakes: q.status === 'fulfilled' ? q.value : null,
   }
   return { ...base, hazards: hazards(base) }
+}
+
+/** Weather and air warnings only (the alert sweep gets earthquakes from the USGS feed instead). */
+export async function getHazards(lat: number, lon: number): Promise<Conditions['hazards']> {
+  const [w, a] = await Promise.all([weather(lat, lon), air(lat, lon).catch(() => null)])
+  return hazards({ weather: w, air: a, quakes: null })
 }

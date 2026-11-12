@@ -10,7 +10,7 @@ import { getFires } from './data/firms.js'
 import { getConditions } from './data/conditions.js'
 import { hashIp, id, store, type Watch } from './store.js'
 import { deliver } from './alerts/channels.js'
-import { match, snapshot, sweep, welcome } from './alerts/engine.js'
+import { current, sweep, welcome } from './alerts/engine.js'
 import { botUsername, handleUpdate, type Update } from './alerts/telegram-bot.js'
 
 const CATEGORIES = new Set(['drought', 'dustHaze', 'earthquakes', 'floods', 'landslides', 'manmade', 'seaLakeIce', 'severeStorms', 'snow', 'tempExtremes', 'volcanoes', 'waterColor', 'wildfires'])
@@ -100,6 +100,9 @@ type Body = {
   categories?: string[]
   fires?: boolean
   minFireConfidence?: number
+  quakes?: boolean
+  minQuakeMag?: number
+  hazards?: boolean
   channels?: { email?: string; sms?: string; whatsapp?: string; telegram?: boolean; discord?: string; slack?: string }
 }
 
@@ -122,7 +125,7 @@ function parseBody(b: Body): { error: string } | { value: Omit<Watch, 'id' | 'to
   if (clean(c.slack)) { if (!SLACK.test(clean(c.slack))) return { error: 'That is not a Slack incoming-webhook URL.' }; channels.slack = clean(c.slack) }
   if (c.telegram) channels.telegram = { startToken: id(12) }
   if (!Object.keys(channels).length) return { error: 'Choose at least one place to send alerts.' }
-  if (!categories.length && !b.fires) return { error: 'Choose at least one kind of event to watch.' }
+  if (!categories.length && !b.fires && !b.quakes && !b.hazards) return { error: 'Choose at least one kind of event to watch.' }
 
   return {
     value: {
@@ -131,6 +134,9 @@ function parseBody(b: Body): { error: string } | { value: Omit<Watch, 'id' | 'to
       categories,
       fires: Boolean(b.fires),
       minFireConfidence: ([0, 1, 2].includes(Number(b.minFireConfidence)) ? Number(b.minFireConfidence) : 1) as 0 | 1 | 2,
+      quakes: Boolean(b.quakes),
+      minQuakeMag: [2.5, 4, 5, 6].includes(Number(b.minQuakeMag)) ? Number(b.minQuakeMag) : 4,
+      hazards: Boolean(b.hazards),
       channels,
     },
   }
@@ -145,6 +151,9 @@ async function publicWatch(w: Watch) {
     radiusKm: w.radiusKm,
     categories: w.categories,
     fires: w.fires,
+    quakes: Boolean(w.quakes),
+    minQuakeMag: w.minQuakeMag ?? 4,
+    hazards: Boolean(w.hazards),
     createdAt: w.createdAt,
     lastCheckedAt: w.lastCheckedAt,
     lastAlertAt: w.lastAlertAt,
@@ -173,14 +182,13 @@ app.post('/api/watches', async (req, res) => {
     const parsed = parseBody(req.body ?? {})
     if ('error' in parsed) return void res.status(400).json(parsed)
     const w: Watch = { ...parsed.value, id: id(), token: id(18), createdAt: new Date().toISOString(), seen: [], active: true }
-    await store.add(w, ip)
     let results: Awaited<ReturnType<typeof deliver>> = [], now
-    try {
-      const digest = await welcome(w)
-      results = await deliver({ ...w.channels, telegram: undefined }, digest) // telegram greets once linked
-      now = { events: digest.events.length, fires: digest.fires?.count ?? 0 }
-    } catch (err) {
-      console.error('[api] welcome failed:', (err as Error).message)
+    // mark what's already nearby as seen *before* saving, so a sweep running right now can't re-announce it
+    const digest = await welcome(w, false).catch((err) => { console.error('[api] welcome failed:', (err as Error).message); return null })
+    await store.add(w, ip)
+    if (digest) {
+      results = await deliver({ ...w.channels, telegram: undefined }, digest).catch(() => []) // telegram greets once linked
+      now = { events: digest.events.length, fires: digest.fires?.count ?? 0, quakes: digest.quakes.length, hazards: digest.hazards.map((h) => h.text) }
     }
     res.status(201).json({ watch: await publicWatch(w), token: w.token, results, now })
   } catch (err) { fail(res, err) }
@@ -206,8 +214,7 @@ app.post('/api/watches/:id/test', async (req, res) => {
     const w = await owned(req, res)
     if (!w) return
     if ((await store.hit(`test:${w.id}`, 3600_000)) > 10) return void res.status(429).json({ error: 'Slow down: 10 test signals per hour.' })
-    const { events, hotspots } = await snapshot()
-    res.json({ results: await deliver(w.channels, { kind: 'test', watch: w, ...match(w, events, hotspots) }) })
+    res.json({ results: await deliver(w.channels, { kind: 'test', watch: w, ...(await current(w)) }) })
   } catch (err) { fail(res, err) }
 })
 

@@ -362,6 +362,10 @@ input { font: inherit; color: inherit; }
 .sheet-head .place-ctx { font-size: 13px; color: var(--mute); line-height: 1.5; }
 .step { display: inline-grid; place-items: center; width: 17px; height: 17px; border: 1px solid var(--line-2); border-radius: 50%; font-size: 9.5px; color: var(--paper-2); letter-spacing: 0; }
 .pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.pick.span2 { grid-column: span 2; }
+.pick-l { margin: 4px 0 8px; font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.pick-grid + .pick-l, .conf + .pick-l, .pick-note + .pick-l { margin-top: 18px; }
+.pick-note { overflow: hidden; margin: 10px 0 0; }
 .pick {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 2px;
   font-size: 12.5px; color: var(--mute); text-align: left; transition: all .2s;

@@ -14,7 +14,7 @@ export const api = {
     fetch(`/api/conditions?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}&r=${r}`, { signal }).then((res) => json<Conditions>(res)),
   createWatch: (body: unknown) =>
     fetch('/api/watches', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-      .then((r) => json<{ watch: PublicWatch; token: string; results: SendResult[]; now?: { events: number; fires: number }; warning?: string }>(r)),
+      .then((r) => json<{ watch: PublicWatch; token: string; results: SendResult[]; now?: { events: number; fires: number; quakes?: number; hazards?: string[] }; warning?: string }>(r)),
   watch: (w: SavedWatch) => fetch(`/api/watches/${w.id}?token=${w.token}`).then((r) => json<PublicWatch>(r)),
   removeWatch: (w: SavedWatch) => fetch(`/api/watches/${w.id}?token=${w.token}`, { method: 'DELETE' }).then((r) => json<{ ok: boolean }>(r)),
   testWatch: (w: SavedWatch) =>

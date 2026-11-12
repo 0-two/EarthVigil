@@ -7,7 +7,7 @@ A 3D globe of what the planet is doing right now, built entirely on NASA open da
 - **A detailed 3D Earth**: cloud-free Sentinel-2 imagery (EOX) that hands over to Esri World Imagery up close, real terrain (AWS Terrain Tiles), sharp OpenFreeMap labels, and Google Earth-style tilted fly-ins
 - **NASA GIBS** overlays: today's VIIRS satellite pass, cloud cover, cloud-top temperature, precipitation, smoke/aerosols, city lights, borders and labels, with a 30-day timeline you can scrub or play
 - **Search any place** (or click anywhere on the globe): Vigil frames it and tells you what's happening within 25–500 km: natural events, fires, earthquakes (USGS), current weather and 3-day forecast, air quality (Open-Meteo), and plain-language warnings for heat, cold, heavy rain, wind, storms and bad air
-- **Alerts** by Email, Telegram, WhatsApp, SMS, Discord or Slack. The server checks every watched place every 15 minutes and only notifies about *new* events.
+- **Alerts** by Email, Telegram, WhatsApp, SMS, Discord or Slack for NASA natural events, fire hotspots, USGS earthquakes (pick a minimum magnitude) and weather/air warnings. The server checks every watched place every 15 minutes (forecast warnings every 6 hours) and only notifies about *new* signals.
 
 ## Run it
 

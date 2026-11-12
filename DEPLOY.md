@@ -91,6 +91,8 @@ Set `PUBLIC_URL=https://yourdomain.com` and redeploy, so links inside alerts use
 | Supabase database | 500 MB | about 1–2 KB per watch, so hundreds of thousands of watches |
 | Supabase egress | 5 GB / month | a sweep reads every watch (about 0.6 KB each), but only when NASA's data changed since the last one (about 30–50 times a day). Comfortable up to roughly 5,000 watches; beyond that, Supabase Pro has 250 GB |
 | NASA | no key needed | ~10 requests/hour total, thanks to the CDN cache |
+| USGS earthquakes | no key needed | one 30 KB feed per sweep, shared by every watch |
+| Open-Meteo (weather & air) | 10,000 calls/day, non-commercial | 2 calls per watch with warnings on, every 6 hours: about 8 a day each, so roughly 1,200 such watches. Each sweep checks at most 150 places, oldest first |
 
 **Watch out:** Vercel's Hobby plan is for **non-commercial** use. Once Vigil earns money (ads, paid alerts), move to Vercel Pro ($20/month). That also unlocks per-minute crons, so the Supabase scheduler becomes optional.
 
