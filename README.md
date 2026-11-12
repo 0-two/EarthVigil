@@ -194,7 +194,7 @@ Restart `npm run dev` after editing `.env`.
 
 ## Put it online
 
-**Free hosting (recommended):** Vercel hosts the site and API, and Supabase provides the database and the 15-minute scheduler. It takes about 20 minutes and costs nothing. Follow **[DEPLOY.md](DEPLOY.md)** step by step. It also lists the free-tier limits and how far they stretch.
+Vercel hosts the site and API, and Supabase provides the database and the 15-minute scheduler. It takes about 20 minutes and costs nothing. Follow **[DEPLOY.md](DEPLOY.md)** step by step. It also lists the free-tier limits and how far they stretch.
 
 **Your own server:** any machine with Docker will do, for example an Oracle Cloud Always Free VM.
 
