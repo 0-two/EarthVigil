@@ -437,7 +437,8 @@ input { font: inherit; color: inherit; }
 .credit a:hover { color: var(--paper); }
 
 .dock { position: relative; }
-.dock-panel { position: absolute; bottom: calc(100% + 8px); left: 0; width: 330px; padding: 14px 8px 8px; }
+.dock-panel { position: absolute; z-index: 2; bottom: calc(100% + 8px); left: 0; width: 330px; padding: 14px 8px 8px;
+  background: var(--ink-1); border-color: var(--line-2); box-shadow: 0 24px 60px -12px rgba(0,0,0,0.85), 0 0 0 1px rgba(0,0,0,0.5); }
 .dock-panel .eyebrow { padding: 0 8px 8px; }
 .dock-panel ul { list-style: none; margin: 0; padding: 0; }
 .layer { width: 100%; display: grid; grid-template-columns: 30px 1fr 42px; gap: 10px; align-items: center; padding: 8px; border-radius: 2px; text-align: left; transition: background .2s; }
@@ -552,7 +553,7 @@ input { font: inherit; color: inherit; }
   .ledger-wrap { top: auto; height: 62vh; bottom: 84px; left: 8px; right: 8px; width: auto; z-index: 25; }
   .side { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: min(78vh, 680px); z-index: 30; border-radius: 10px 10px 0 0; }
   .place h2, .sheet h2 { font-size: 30px; }
-  .rail { grid-template-columns: 1fr auto; grid-template-rows: auto auto; padding-bottom: 12px; row-gap: 8px; }
+  .rail { grid-template-columns: 1fr auto; grid-template-rows: auto auto; padding-bottom: 12px; row-gap: 8px; z-index: 26; }
   .timeline { grid-column: 1 / -1; grid-row: 1; width: 100%; }
   .rail-left { grid-row: 2; }
   .rail-right { grid-row: 2; }
