@@ -13,11 +13,26 @@ with alerts for the places you care about.
 &nbsp;&nbsp;·&nbsp;&nbsp;
 <a href="DEPLOY.md">Deploy your own</a>
 
+<p>
+  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
+  <img src="https://img.shields.io/badge/MapLibre-396CB2?style=for-the-badge&logo=maplibre&logoColor=white" alt="MapLibre GL">
+  <img src="https://img.shields.io/badge/Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Motion">
+  <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js">
+  <img src="https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express">
+  <img src="https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase">
+  <img src="https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel">
+  <img src="https://img.shields.io/badge/NASA_Open_Data-0B3D91?style=for-the-badge&logo=nasa&logoColor=white" alt="NASA Open Data">
+</p>
+
 <br>
 
 <img src="docs/demo.gif" alt="Vigil: the intro, the spinning globe with fire hotspots, the layer panel, a search that flies to Mount Etna, the place report and the alert form" width="720">
 
 </div>
+
+
 
 <br>
 
