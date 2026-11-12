@@ -1,0 +1,47 @@
+{
+  "name": "vigil",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Vigil: a live watch over Earth. NASA EONET events, FIRMS fire hotspots and GIBS imagery on a globe, with location alerts.",
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c yellow,cyan \"vite\" \"tsx watch --clear-screen=false server/index.ts\"",
+    "dev:web": "vite",
+    "dev:api": "tsx watch --clear-screen=false server/index.ts",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "start": "vite build && tsx server/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p server/tsconfig.json",
+    "serve": "tsx server/index.ts",
+    "telegram:webhook": "tsx scripts/telegram-webhook.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/newsreader": "^5.3.0",
+    "@fontsource-variable/schibsted-grotesk": "^5.3.0",
+    "@fontsource/fragment-mono": "^5.3.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "compression": "^1.8.2",
+    "express": "^5.3.0",
+    "maplibre-gl": "^6.18.0",
+    "motion": "^14.12.0",
+    "nodemailer": "^10.5.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/express": "^5.0.6",
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^26.6.6",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
+    "tsx": "^4.23.15",
+    "typescript": "5.9",
+    "vite": "^8.3.8"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
