@@ -3,6 +3,10 @@ import { createPortal } from 'react-dom'
 import * as maplibregl from 'maplibre-gl'
 import { type GeoJSONSource, type Map as MLMap, type RasterTileSource, type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
+
+// MapLibre builds its worker URL at runtime, which the production bundler can't see; hand it the emitted file instead.
+maplibregl.setWorkerUrl(workerUrl)
 import type { EonetEvent, FireSet, Hotspot, Place } from '../lib/types'
 import { OVERLAYS, SOURCES, tileUrl, type Overlay } from '../lib/gibs'
 import { CATEGORIES } from '../lib/categories'
